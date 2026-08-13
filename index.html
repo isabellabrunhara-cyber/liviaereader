@@ -617,4 +617,64 @@
              * Mostra a biblioteca
              */
 
-{
+            document.getElementById("home").style.display = "flex";
+
+
+            /*
+             * Remove o EPUB da tela
+             */
+
+            document.getElementById("viewer").innerHTML = "";
+
+            book = null;
+
+            rendition = null;
+
+        }
+
+
+        /* =====================================================
+           TECLADO
+        ====================================================== */
+
+        document.addEventListener("keydown", function(event) {
+
+            /*
+             * Se nenhum livro estiver aberto ou não estiver pronto, não faz nada
+             */
+
+            if (!isReady) {
+                return;
+            }
+
+
+            /*
+             * Seta direita = próxima página
+             */
+
+            if (event.key === "ArrowRight") {
+
+                try { rendition.next(); } catch (e) { console.error('next error', e); }
+
+            }
+
+
+            /*
+             * Seta esquerda = página anterior
+             */
+
+            if (event.key === "ArrowLeft") {
+
+                try { rendition.prev(); } catch (e) { console.error('prev error', e); }
+
+            }
+
+        });
+
+
+    </script>
+
+
+</body>
+
+</html>
