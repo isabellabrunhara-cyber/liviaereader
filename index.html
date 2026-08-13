@@ -7,11 +7,6 @@
 
     <title>Minha Biblioteca</title>
 
-    <!-- Biblioteca para leitura de EPUB -->
-    <!-- JSZip precisa estar disponível para o epub.js quando carregamos a partir de Blob -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
-
     <style>
 
         /* =========================
@@ -202,7 +197,7 @@
 
 
         /* =========================
-           ÁREA DO EPUB
+           ÁREA DO PDF
         ========================= */
 
         #viewer {
@@ -211,23 +206,6 @@
             height: calc(100vh - 60px);
 
             background: white;
-        }
-
-        /* footer injected into pages */
-        .epub-nav-footer {
-            text-align: center;
-            margin-top: 20px;
-            padding: 10px 0;
-            border-top: 1px solid #ddd;
-        }
-
-        .epub-nav-footer button {
-            padding: 8px 12px;
-            margin: 0 8px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            background: #fff;
-            cursor: pointer;
         }
 
         /* loader overlay */
@@ -339,7 +317,7 @@
 
                 <button
                     onclick="abrirLivro(
-                        'despertar-da-lua-caida.epub',
+                        'despertar-da-lua-caida.pdf',
                         'Despertar da Lua Caída'
                     )">
 
@@ -367,7 +345,7 @@
 
                 <button
                     onclick="abrirLivro(
-                        'sangue-sobre-bright-haven.epub',
+                        'sangue-sobre-bright-haven.pdf',
                         'Sangue Sobre Bright Haven'
                     )">
 
@@ -414,7 +392,7 @@
                 <button
                     class="reader-button nav-button"
                     id="btn-prev"
-                    onclick="livroAnterior()">
+                    style="display:none">
 
                     ←
 
@@ -424,7 +402,7 @@
                 <button
                     class="reader-button nav-button"
                     id="btn-next"
-                    onclick="proximoLivro()">
+                    style="display:none">
 
                     →
 
@@ -436,7 +414,7 @@
 
 
 
-        <!-- ÁREA ONDE O EPUB SERÁ RENDERIZADO -->
+        <!-- ÁREA ONDE O PDF SERÁ RENDERIZADO -->
 
         <div id="viewer"></div>
 
@@ -456,21 +434,13 @@
 
     <script>
 
-
         /* =====================================================
            VARIÁVEIS
         ====================================================== */
 
-        let book = null;
-
-        let rendition = null;
-
-        let isReady = false; // só true depois do rendition.display() completar
-
         // URL base do GitHub Pages - usar relativa para maior compatibilidade
         const BASE_URL = './';
 
-        // utilitários para habilitar/desabilitar botões de navegação
         function setNavEnabled(enabled) {
             document.querySelectorAll('.nav-button').forEach(b => {
                 b.disabled = !enabled;
@@ -497,9 +467,8 @@
             if (textEl && text) textEl.textContent = text;
         }
 
-
         /* =====================================================
-           ABRIR LIVRO (com download stream + loader)
+           ABRIR PDF (simples via iframe)
         ====================================================== */
 
         async function abrirLivro(arquivo, titulo) {
@@ -507,40 +476,13 @@
             showLoader(true);
             updateLoaderProgress(0, 'Iniciando download...');
 
-            isReady = false;
             setNavEnabled(false);
 
-            /*
-             * Esconde a página inicial
-             */
-
+            // Esconde a página inicial e mostra o leitor
             document.getElementById("home").style.display = "none";
-
-
-            /*
-             * Mostra o leitor
-             */
-
             document.getElementById("reader").style.display = "block";
-
-
-            /*
-             * Coloca o título no cabeçalho
-             */
-
             document.getElementById("tituloLivro").textContent = titulo;
-
-
-            /*
-             * Limpa o leitor anterior
-             */
-
             document.getElementById("viewer").innerHTML = "";
-
-
-            /*
-             * Cria o EPUB com URL absoluta
-             */
 
             const epubUrl = BASE_URL + arquivo;
 
@@ -551,15 +493,37 @@
                 const contentLength = resp.headers.get('Content-Length');
                 const total = contentLength ? parseInt(contentLength, 10) : null;
 
-                // se não houver streaming, pega o blob direto
+                // tenta fazer streaming para progresso quando possível
                 if (!resp.body || !resp.body.getReader) {
                     updateLoaderProgress(null, 'Baixando arquivo...');
                     const blob = await resp.blob();
+
+                    // validação simples
+                    if (blob.size < 2048) {
+                        showLoader(false);
+                        alert('Arquivo PDF inválido (tamanho muito pequeno). Verifique o arquivo no repositório.');
+                        voltarInicio();
+                        return;
+                    }
+
+                    const url = URL.createObjectURL(blob);
+                    const iframe = document.createElement('iframe');
+                    iframe.src = url;
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.border = '0';
+                    document.getElementById('viewer').appendChild(iframe);
+                    window._currentPdfUrl = url;
+
                     updateLoaderProgress(100, 'Concluído — abrindo...');
-                    await openBlobAsEpub(blob, arquivo, titulo);
+                    showLoader(false);
+                    setNavEnabled(true);
+                    localStorage.setItem("ultimoLivro", arquivo);
+                    localStorage.setItem("ultimoTitulo", titulo);
                     return;
                 }
 
+                // streaming reader path
                 const reader = resp.body.getReader();
                 const chunks = [];
                 let received = 0;
@@ -578,207 +542,85 @@
                     }
                 }
 
-                const blob = new Blob(chunks, { type: 'application/epub+zip' });
-                updateLoaderProgress(100, 'Concluído — abrindo...');
+                const blob = new Blob(chunks, { type: 'application/pdf' });
 
-                await openBlobAsEpub(blob, arquivo, titulo);
-
-            } catch (e) {
-                console.error('Erro carregando EPUB', e);
-                alert('Erro ao carregar o livro: ' + e.message);
-                voltarInicio();
-            } finally {
-                showLoader(false);
-            }
-
-        }
-
-        async function openBlobAsEpub(blob, arquivo, titulo) {
-            // converte Blob -> ArrayBuffer para evitar erros de compatibilidade do epub.js/JSZip
-            const arrayBuffer = await blob.arrayBuffer();
-
-            // carrega o epub a partir do ArrayBuffer
-            book = ePub(arrayBuffer);
-
-            // logging para debug
-            book.loaded.metadata
-                .then(m => console.log('metadata', m))
-                .catch(e => console.error('metadata error', e));
-            book.ready
-                .then(() => console.log('book.ready OK'))
-                .catch(e => console.error('book.ready error', e));
-
-            // Renderiza o livro
-            rendition = book.renderTo("viewer", {
-                width: "100%",
-                height: "100%",
-                spread: "auto"
-            });
-
-            // Quando uma página for renderizada, injetamos botões no final dela
-            rendition.on('rendered', function (section) {
-                try {
-                    const contents = rendition.getContents();
-                    if (!contents || !contents.document) return;
-                    const doc = contents.document;
-
-                    // evita duplicar o footer
-                    if (doc.getElementById('epub-nav-footer')) return;
-
-                    const footer = doc.createElement('div');
-                    footer.id = 'epub-nav-footer';
-                    footer.className = 'epub-nav-footer';
-
-                    const btnPrev = doc.createElement('button');
-                    btnPrev.textContent = '← Anterior';
-                    btnPrev.style.marginRight = '12px';
-
-                    const btnNext = doc.createElement('button');
-                    btnNext.textContent = 'Próxima →';
-
-                    footer.appendChild(btnPrev);
-                    footer.appendChild(btnNext);
-
-                    doc.body.appendChild(footer);
-
-                    // anexa handlers que chamam o rendition do host
-                    btnPrev.addEventListener('click', function (e) {
-                        try { rendition.prev(); } catch (err) { console.error('prev in page error', err); }
-                    });
-
-                    btnNext.addEventListener('click', function (e) {
-                        try { rendition.next(); } catch (err) { console.error('next in page error', err); }
-                    });
-
-                } catch (err) {
-                    console.error('error injecting footer', err);
+                if (blob.size < 2048) {
+                    showLoader(false);
+                    alert('Arquivo PDF inválido (tamanho muito pequeno). Verifique o arquivo no repositório.');
+                    voltarInicio();
+                    return;
                 }
-            });
 
-            // Mostra a primeira página
-            await rendition.display();
+                const url = URL.createObjectURL(blob);
+                const iframe = document.createElement('iframe');
+                iframe.src = url;
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = '0';
+                document.getElementById('viewer').appendChild(iframe);
+                window._currentPdfUrl = url;
 
-            isReady = true;
-            setNavEnabled(true);
-            console.log('rendition ready');
+                updateLoaderProgress(100, 'Concluído — abrindo...');
+                showLoader(false);
+                setNavEnabled(true);
+                localStorage.setItem("ultimoLivro", arquivo);
+                localStorage.setItem("ultimoTitulo", titulo);
 
-            localStorage.setItem("ultimoLivro", arquivo);
-            localStorage.setItem("ultimoTitulo", titulo);
-        }
-
-
-        /* =====================================================
-           PRÓXIMA PÁGINA
-        ====================================================== */
-
-        function proximoLivro() {
-
-            if (!isReady || !rendition) return;
-
-            try {
-                rendition.next();
             } catch (e) {
-                console.error('next error', e);
+                console.error('Erro carregando PDF', e);
+                showLoader(false);
+                alert('Erro ao carregar o arquivo: ' + (e && e.message ? e.message : e));
+                voltarInicio();
             }
 
         }
-
-
-        /* =====================================================
-           PÁGINA ANTERIOR
-        ====================================================== */
-
-        function livroAnterior() {
-
-            if (!isReady || !rendition) return;
-
-            try {
-                rendition.prev();
-            } catch (e) {
-                console.error('prev error', e);
-            }
-
-        }
-
 
         /* =====================================================
            VOLTAR PARA A BIBLIOTECA
         ====================================================== */
 
         function voltarInicio() {
-
-            isReady = false;
             setNavEnabled(false);
 
-            /*
-             * Esconde o leitor
-             */
+            // Revoke object URL se existir
+            try {
+                if (window._currentPdfUrl) {
+                    URL.revokeObjectURL(window._currentPdfUrl);
+                    window._currentPdfUrl = null;
+                }
+            } catch (e) { console.warn('revoke failed', e); }
 
+            // Esconde o leitor
             document.getElementById("reader").style.display = "none";
 
-
-            /*
-             * Mostra a biblioteca
-             */
-
+            // Mostra a biblioteca
             document.getElementById("home").style.display = "flex";
 
-
-            /*
-             * Remove o EPUB da tela
-             */
-
+            // Limpa o viewer
             document.getElementById("viewer").innerHTML = "";
-
-            book = null;
-
-            rendition = null;
-
         }
 
-
         /* =====================================================
-           TECLADO
+           TECLADO (scroll simples no viewer)
         ====================================================== */
 
-        document.addEventListener("keydown", function (event) {
+        document.addEventListener("keydown", function(event) {
+            // Apenas se o leitor estiver visível
+            if (document.getElementById('reader').style.display === 'none') return;
 
-            /*
-             * Se nenhum livro estiver aberto ou não estiver pronto, não faz nada
-             */
+            const viewer = document.getElementById('viewer');
+            if (!viewer) return;
 
-            if (!isReady) {
-                return;
+            if (event.key === "ArrowRight" || event.key === 'PageDown') {
+                viewer.scrollBy({ left: viewer.clientWidth * 0.8, behavior: 'smooth' });
             }
-
-
-            /*
-             * Seta direita = próxima página
-             */
-
-            if (event.key === "ArrowRight") {
-
-                try { rendition.next(); } catch (e) { console.error('next error', e); }
-
+            if (event.key === "ArrowLeft" || event.key === 'PageUp') {
+                viewer.scrollBy({ left: -viewer.clientWidth * 0.8, behavior: 'smooth' });
             }
-
-
-            /*
-             * Seta esquerda = página anterior
-             */
-
-            if (event.key === "ArrowLeft") {
-
-                try { rendition.prev(); } catch (e) { console.error('prev error', e); }
-
-            }
-
         });
 
-        // expõe funções no escopo global para handlers inline
+        // expõe função global (para onclick inline)
         window.abrirLivro = abrirLivro;
-        window.proximoLivro = proximoLivro;
-        window.livroAnterior = livroAnterior;
         window.voltarInicio = voltarInicio;
 
     </script>
