@@ -397,6 +397,8 @@
 
         let rendition = null;
 
+        // URL base do GitHub Pages
+        const BASE_URL = 'https://isabellabrunhara-cyber.github.io/liviaereader/';
 
 
         /* =====================================================
@@ -434,10 +436,12 @@
 
 
             /*
-             * Cria o EPUB
+             * Cria o EPUB com URL absoluta
              */
 
-            book = ePub(arquivo);
+            const epubUrl = BASE_URL + arquivo;
+
+            book = ePub(epubUrl);
 
 
             /*
