@@ -406,5 +406,119 @@
 
             <span id="tituloLivro">
                 Carregando...
+            </span>
 
-{
+
+            <div>
+
+                <button
+                    class="reader-button nav-button"
+                    id="btn-prev"
+                    onclick="livroAnterior()">
+
+                    ←
+
+                </button>
+
+
+                <button
+                    class="reader-button nav-button"
+                    id="btn-next"
+                    onclick="proximoLivro()">
+
+                    →
+
+                </button>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- ÁREA ONDE O EPUB SERÁ RENDERIZADO -->
+
+        <div id="viewer"></div>
+
+        <!-- Loader overlay -->
+        <div id="loader-overlay" aria-hidden="true">
+            <div class="loader-box">
+                <div id="loader-text">Carregando...</div>
+                <div class="loader-bar">
+                    <div id="loader-progress" class="loader-progress" style="width:0%"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+
+    <script>
+
+
+        /* =====================================================
+           VARIÁVEIS
+        ====================================================== */
+
+        let book = null;
+
+        let rendition = null;
+
+        let isReady = false; // só true depois do rendition.display() completar
+
+        // URL base do GitHub Pages - usar relativa para maior compatibilidade
+        const BASE_URL = './';
+
+        // utilitários para habilitar/desabilitar botões de navegação
+        function setNavEnabled(enabled) {
+            document.querySelectorAll('.nav-button').forEach(b => {
+                b.disabled = !enabled;
+                if (enabled) b.style.opacity = '1'; else b.style.opacity = '0.6';
+            });
+        }
+
+        function showLoader(show) {
+            const el = document.getElementById('loader-overlay');
+            if (!el) return;
+            el.style.display = show ? 'flex' : 'none';
+        }
+
+        function updateLoaderProgress(percent, text) {
+            const pctEl = document.getElementById('loader-progress');
+            const textEl = document.getElementById('loader-text');
+            if (pctEl) {
+                if (typeof percent === 'number') {
+                    pctEl.style.width = percent + '%';
+                } else {
+                    pctEl.style.width = '40%';
+                }
+            }
+            if (textEl && text) textEl.textContent = text;
+        }
+
+
+        /* =====================================================
+           ABRIR LIVRO (com download stream + loader)
+        ====================================================== */
+
+        async function abrirLivro(arquivo, titulo) {
+
+            showLoader(true);
+            updateLoaderProgress(0, 'Iniciando download...');
+
+            isReady = false;
+            setNavEnabled(false);
+
+            /*
+             * Esconde a página inicial
+             */
+
+            document.getElementById("home").style.display = "none";
+
+
+            /*
+             * Mostra o leitor
+             */
+
+We need to finish update: modify openBlobAsEpub. Continue content until function openBlobAsEpub and change book = ePub(blob) to arrayBuffer. Our create_or_update_file call attempted to write file earlier; now we need to run a final update to change code. So call create_or_update_file with updated content and sha from latest file: sha from previous create_or_update_file response: it returned content sha 
