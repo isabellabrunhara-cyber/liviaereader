@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Minha Biblioteca</title>
+
+    <!-- Biblioteca para leitura de EPUB -->
+    <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+
+    <style>
+
+        /* =========================
+           CONFIGURAÇÕES GERAIS
+        ========================= */
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Georgia, "Times New Roman", serif;
+            background: #f5f1eb;
+            color: #2b2522;
+        }
+
+
+        /* =========================
+           PÁGINA INICIAL
+        ========================= */
+
+        #home {
+            min-height: 100vh;
+
+            display: flex;
+            flex-direction: column;
+
+            justify-content: center;
+            align-items: center;
+
+            padding: 30px;
+        }
+
+        #home h1 {
+            font-size: 42px;
+            margin-bottom: 10px;
+        }
+
+        #home p {
+            font-size: 18px;
+            color: #6d625c;
+            margin-bottom: 40px;
+        }
+
+
+        /* =========================
+           LIVROS
+        ========================= */
+
+        .books {
+            display: flex;
+            flex-wrap: wrap;
+
+            justify-content: center;
+
+            gap: 25px;
+
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .book {
+            width: 300px;
+
+            background: white;
+
+            border-radius: 15px;
+
+            padding: 30px 20px;
+
+            text-align: center;
+
+            box-shadow: 0 5px 20px rgba(0,0,0,0.10);
+
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .book:hover {
+            transform: translateY(-5px);
+
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .book-icon {
+            font-size: 55px;
+            margin-bottom: 15px;
+        }
+
+        .book h2 {
+            font-size: 22px;
+            margin-bottom: 20px;
+        }
+
+        .book button {
+            width: 100%;
+
+            padding: 13px;
+
+            border: none;
+
+            border-radius: 8px;
+
+            background: #2b2522;
+            color: white;
+
+            font-family: Georgia, "Times New Roman", serif;
+
+            font-size: 16px;
+
+            cursor: pointer;
+
+            transition: background 0.2s;
+        }
+
+        .book button:hover {
+            background: #51443d;
+        }
+
+
+        /* =========================
+           LEITOR
+        ========================= */
+
+        #reader {
+            display: none;
+
+            width: 100%;
+            height: 100vh;
+        }
+
+
+        /* =========================
+           CABEÇALHO DO LEITOR
+        ========================= */
+
+        header {
+            height: 60px;
+
+            background: #2b2522;
+            color: white;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            padding: 0 20px;
+        }
+
+        #tituloLivro {
+            font-size: 18px;
+
+            text-align: center;
+
+            flex: 1;
+
+            margin: 0 15px;
+        }
+
+
+        /* =========================
+           BOTÕES DO LEITOR
+        ========================= */
+
+        .reader-button {
+            border: none;
+
+            background: white;
+            color: #2b2522;
+
+            padding: 8px 14px;
+
+            border-radius: 7px;
+
+            cursor: pointer;
+
+            font-family: Arial, sans-serif;
+
+            font-size: 14px;
+        }
+
+        .reader-button:hover {
+            background: #e8e2dc;
+        }
+
+
+        /* =========================
+           ÁREA DO EPUB
+        ========================= */
+
+        #viewer {
+            width: 100%;
+
+            height: calc(100vh - 60px);
+
+            background: white;
+        }
+
+
+        /* =========================
+           CELULAR
+        ========================= */
+
+        @media (max-width: 600px) {
+
+            #home h1 {
+                font-size: 32px;
+            }
+
+            #home p {
+                font-size: 16px;
+            }
+
+            .book {
+                width: 100%;
+                max-width: 330px;
+            }
+
+            header {
+                padding: 0 10px;
+            }
+
+            #tituloLivro {
+                font-size: 14px;
+            }
+
+            .reader-button {
+                padding: 7px 9px;
+                font-size: 12px;
+            }
+        }
+
+    </style>
+</head>
+
+
+<body>
+
+
+    <!-- =====================================================
+         PÁGINA INICIAL
+    ====================================================== -->
+
+    <div id="home">
+
+        <h1>📚 Minha Biblioteca</h1>
+
+        <p>Escolha um livro para começar a leitura</p>
+
+
+        <div class="books">
+
+
+            <!-- =========================
+                 LIVRO 1
+            ========================== -->
+
+            <div class="book">
+
+                <div class="book-icon">
+                    🌙
+                </div>
+
+                <h2>
+                    Despertar da Lua Caída
+                </h2>
+
+                <button
+                    onclick="abrirLivro(
+                        'DespertardaLuaCaídaSarahAParker.epub',
+                        'Despertar da Lua Caída'
+                    )">
+
+                    📖 Ler livro
+
+                </button>
+
+            </div>
+
+
+
+            <!-- =========================
+                 LIVRO 2
+            ========================== -->
+
+            <div class="book">
+
+                <div class="book-icon">
+                    🩸
+                </div>
+
+                <h2>
+                    Sangue Sobre Bright Haven
+                </h2>
+
+                <button
+                    onclick="abrirLivro(
+                        'sanguesobrebrighthaven.epub',
+                        'Sangue Sobre Bright Haven'
+                    )">
+
+                    📖 Ler livro
+
+                </button>
+
+            </div>
+
+
+        </div>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         LEITOR
+    ====================================================== -->
+
+    <div id="reader">
+
+
+        <!-- CABEÇALHO -->
+
+        <header>
+
+            <button
+                class="reader-button"
+                onclick="voltarInicio()">
+
+                ← Biblioteca
+
+            </button>
+
+
+            <span id="tituloLivro">
+                Carregando...
+            </span>
+
+
+            <div>
+
+                <button
+                    class="reader-button"
+                    onclick="livroAnterior()">
+
+                    ←
+
+                </button>
+
+
+                <button
+                    class="reader-button"
+                    onclick="proximoLivro()">
+
+                    →
+
+                </button>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- ÁREA ONDE O EPUB SERÁ RENDERIZADO -->
+
+        <div id="viewer"></div>
+
+
+    </div>
+
+
+
+    <script>
+
+
+        /* =====================================================
+           VARIÁVEIS
+        ====================================================== */
+
+        let book = null;
+
+        let rendition = null;
+
+
+
+        /* =====================================================
+           ABRIR LIVRO
+        ====================================================== */
+
+        function abrirLivro(arquivo, titulo) {
+
+            /*
+             * Esconde a página inicial
+             */
+
+            document.getElementById("home").style.display = "none";
+
+
+            /*
+             * Mostra o leitor
+             */
+
+            document.getElementById("reader").style.display = "block";
+
+
+            /*
+             * Coloca o título no cabeçalho
+             */
+
+            document.getElementById("tituloLivro").textContent = titulo;
+
+
+            /*
+             * Limpa o leitor anterior
+             */
+
+            document.getElementById("viewer").innerHTML = "";
+
+
+            /*
+             * Cria o EPUB
+             */
+
+            book = ePub(arquivo);
+
+
+            /*
+             * Renderiza o livro
+             */
+
+            rendition = book.renderTo("viewer", {
+
+                width: "100%",
+
+                height: "100%",
+
+                spread: "auto"
+
+            });
+
+
+            /*
+             * Mostra a primeira página
+             */
+
+            rendition.display();
+
+
+            /*
+             * Salva o livro atual
+             */
+
+            localStorage.setItem("ultimoLivro", arquivo);
+
+            localStorage.setItem("ultimoTitulo", titulo);
+
+        }
+
+
+
+        /* =====================================================
+           PRÓXIMA PÁGINA
+        ====================================================== */
+
+        function proximoLivro() {
+
+            if (rendition) {
+
+                rendition.next();
+
+            }
+
+        }
+
+
+
+        /* =====================================================
+           PÁGINA ANTERIOR
+        ====================================================== */
+
+        function livroAnterior() {
+
+            if (rendition) {
+
+                rendition.prev();
+
+            }
+
+        }
+
+
+
+        /* =====================================================
+           VOLTAR PARA A BIBLIOTECA
+        ====================================================== */
+
+        function voltarInicio() {
+
+            /*
+             * Esconde o leitor
+             */
+
+            document.getElementById("reader").style.display = "none";
+
+
+            /*
+             * Mostra a biblioteca
+             */
+
+            document.getElementById("home").style.display = "flex";
+
+
+            /*
+             * Remove o EPUB da tela
+             */
+
+            document.getElementById("viewer").innerHTML = "";
+
+            book = null;
+
+            rendition = null;
+
+        }
+
+
+
+        /* =====================================================
+           TECLADO
+        ====================================================== */
+
+        document.addEventListener("keydown", function(event) {
+
+            /*
+             * Se nenhum livro estiver aberto, não faz nada
+             */
+
+            if (!rendition) {
+                return;
+            }
+
+
+            /*
+             * Seta direita = próxima página
+             */
+
+            if (event.key === "ArrowRight") {
+
+                rendition.next();
+
+            }
+
+
+            /*
+             * Seta esquerda = página anterior
+             */
+
+            if (event.key === "ArrowLeft") {
+
+                rendition.prev();
+
+            }
+
+        });
+
+
+    </script>
+
+
+</body>
+
+</html>
