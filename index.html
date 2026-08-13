@@ -521,4 +521,269 @@
              * Mostra o leitor
              */
 
-We need to finish update: modify openBlobAsEpub. Continue content until function openBlobAsEpub and change book = ePub(blob) to arrayBuffer. Our create_or_update_file call attempted to write file earlier; now we need to run a final update to change code. So call create_or_update_file with updated content and sha from latest file: sha from previous create_or_update_file response: it returned content sha 
+            document.getElementById("reader").style.display = "block";
+
+
+            /*
+             * Coloca o título no cabeçalho
+             */
+
+            document.getElementById("tituloLivro").textContent = titulo;
+
+
+            /*
+             * Limpa o leitor anterior
+             */
+
+            document.getElementById("viewer").innerHTML = "";
+
+
+            /*
+             * Cria o EPUB com URL absoluta
+             */
+
+            const epubUrl = BASE_URL + arquivo;
+
+            try {
+                const resp = await fetch(epubUrl);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+                const contentLength = resp.headers.get('Content-Length');
+                const total = contentLength ? parseInt(contentLength, 10) : null;
+
+                // se não houver streaming, pega o blob direto
+                if (!resp.body || !resp.body.getReader) {
+                    updateLoaderProgress(null, 'Baixando arquivo...');
+                    const blob = await resp.blob();
+                    updateLoaderProgress(100, 'Concluído — abrindo...');
+                    await openBlobAsEpub(blob, arquivo, titulo);
+                    return;
+                }
+
+                const reader = resp.body.getReader();
+                const chunks = [];
+                let received = 0;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    received += value.length || value.byteLength || 0;
+
+                    if (total) {
+                        const percent = Math.round((received / total) * 100);
+                        updateLoaderProgress(percent, `Baixando... ${percent}%`);
+                    } else {
+                        updateLoaderProgress(null, `Baixando... ${Math.round(received/1024)} KB`);
+                    }
+                }
+
+                const blob = new Blob(chunks, { type: 'application/epub+zip' });
+                updateLoaderProgress(100, 'Concluído — abrindo...');
+
+                await openBlobAsEpub(blob, arquivo, titulo);
+
+            } catch (e) {
+                console.error('Erro carregando EPUB', e);
+                alert('Erro ao carregar o livro: ' + e.message);
+                voltarInicio();
+            } finally {
+                showLoader(false);
+            }
+
+        }
+
+        async function openBlobAsEpub(blob, arquivo, titulo) {
+            // converte Blob -> ArrayBuffer para evitar erros de compatibilidade do epub.js/JSZip
+            const arrayBuffer = await blob.arrayBuffer();
+
+            // carrega o epub a partir do ArrayBuffer
+            book = ePub(arrayBuffer);
+
+            // logging para debug
+            book.loaded.metadata
+                .then(m => console.log('metadata', m))
+                .catch(e => console.error('metadata error', e));
+            book.ready
+                .then(() => console.log('book.ready OK'))
+                .catch(e => console.error('book.ready error', e));
+
+            // Renderiza o livro
+            rendition = book.renderTo("viewer", {
+                width: "100%",
+                height: "100%",
+                spread: "auto"
+            });
+
+            // Quando uma página for renderizada, injetamos botões no final dela
+            rendition.on('rendered', function (section) {
+                try {
+                    const contents = rendition.getContents();
+                    if (!contents || !contents.document) return;
+                    const doc = contents.document;
+
+                    // evita duplicar o footer
+                    if (doc.getElementById('epub-nav-footer')) return;
+
+                    const footer = doc.createElement('div');
+                    footer.id = 'epub-nav-footer';
+                    footer.className = 'epub-nav-footer';
+
+                    const btnPrev = doc.createElement('button');
+                    btnPrev.textContent = '← Anterior';
+                    btnPrev.style.marginRight = '12px';
+
+                    const btnNext = doc.createElement('button');
+                    btnNext.textContent = 'Próxima →';
+
+                    footer.appendChild(btnPrev);
+                    footer.appendChild(btnNext);
+
+                    doc.body.appendChild(footer);
+
+                    // anexa handlers que chamam o rendition do host
+                    btnPrev.addEventListener('click', function (e) {
+                        try { rendition.prev(); } catch (err) { console.error('prev in page error', err); }
+                    });
+
+                    btnNext.addEventListener('click', function (e) {
+                        try { rendition.next(); } catch (err) { console.error('next in page error', err); }
+                    });
+
+                } catch (err) {
+                    console.error('error injecting footer', err);
+                }
+            });
+
+            // Mostra a primeira página
+            await rendition.display();
+
+            isReady = true;
+            setNavEnabled(true);
+            console.log('rendition ready');
+
+            localStorage.setItem("ultimoLivro", arquivo);
+            localStorage.setItem("ultimoTitulo", titulo);
+        }
+
+
+        /* =====================================================
+           PRÓXIMA PÁGINA
+        ====================================================== */
+
+        function proximoLivro() {
+
+            if (!isReady || !rendition) return;
+
+            try {
+                rendition.next();
+            } catch (e) {
+                console.error('next error', e);
+            }
+
+        }
+
+
+        /* =====================================================
+           PÁGINA ANTERIOR
+        ====================================================== */
+
+        function livroAnterior() {
+
+            if (!isReady || !rendition) return;
+
+            try {
+                rendition.prev();
+            } catch (e) {
+                console.error('prev error', e);
+            }
+
+        }
+
+
+        /* =====================================================
+           VOLTAR PARA A BIBLIOTECA
+        ====================================================== */
+
+        function voltarInicio() {
+
+            isReady = false;
+            setNavEnabled(false);
+
+            /*
+             * Esconde o leitor
+             */
+
+            document.getElementById("reader").style.display = "none";
+
+
+            /*
+             * Mostra a biblioteca
+             */
+
+            document.getElementById("home").style.display = "flex";
+
+
+            /*
+             * Remove o EPUB da tela
+             */
+
+            document.getElementById("viewer").innerHTML = "";
+
+            book = null;
+
+            rendition = null;
+
+        }
+
+
+        /* =====================================================
+           TECLADO
+        ====================================================== */
+
+        document.addEventListener("keydown", function (event) {
+
+            /*
+             * Se nenhum livro estiver aberto ou não estiver pronto, não faz nada
+             */
+
+            if (!isReady) {
+                return;
+            }
+
+
+            /*
+             * Seta direita = próxima página
+             */
+
+            if (event.key === "ArrowRight") {
+
+                try { rendition.next(); } catch (e) { console.error('next error', e); }
+
+            }
+
+
+            /*
+             * Seta esquerda = página anterior
+             */
+
+            if (event.key === "ArrowLeft") {
+
+                try { rendition.prev(); } catch (e) { console.error('prev error', e); }
+
+            }
+
+        });
+
+        // expõe funções no escopo global para handlers inline
+        window.abrirLivro = abrirLivro;
+        window.proximoLivro = proximoLivro;
+        window.livroAnterior = livroAnterior;
+        window.voltarInicio = voltarInicio;
+
+    </script>
+
+
+</body>
+
+</html>
