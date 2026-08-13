@@ -213,6 +213,23 @@
             background: white;
         }
 
+        /* footer injected into pages */
+        .epub-nav-footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px 0;
+            border-top: 1px solid #ddd;
+        }
+
+        .epub-nav-footer button {
+            padding: 8px 12px;
+            margin: 0 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+        }
+
 
         /* =========================
            CELULAR
@@ -341,7 +358,7 @@
         <header>
 
             <button
-                class="reader-button"
+                class="reader-button nav-button"
                 onclick="voltarInicio()">
 
                 ← Biblioteca
@@ -357,7 +374,8 @@
             <div>
 
                 <button
-                    class="reader-button"
+                    class="reader-button nav-button"
+                    id="btn-prev"
                     onclick="livroAnterior()">
 
                     ←
@@ -366,7 +384,8 @@
 
 
                 <button
-                    class="reader-button"
+                    class="reader-button nav-button"
+                    id="btn-next"
                     onclick="proximoLivro()">
 
                     →
@@ -399,8 +418,18 @@
 
         let rendition = null;
 
+        let isReady = false; // só true depois do rendition.display() completar
+
         // URL base do GitHub Pages - usar relativa para maior compatibilidade
         const BASE_URL = './';
+
+        // utilitários para habilitar/desabilitar botões de navegação
+        function setNavEnabled(enabled) {
+            document.querySelectorAll('.nav-button').forEach(b => {
+                b.disabled = !enabled;
+                if (enabled) b.style.opacity = '1'; else b.style.opacity = '0.6';
+            });
+        }
 
 
         /* =====================================================
@@ -408,6 +437,9 @@
         ====================================================== */
 
         async function abrirLivro(arquivo, titulo) {
+
+            isReady = false;
+            setNavEnabled(false);
 
             /*
              * Esconde a página inicial
@@ -467,8 +499,52 @@
                     spread: "auto"
                 });
 
+                // Quando uma página for renderizada, injetamos botões no final dela
+                rendition.on('rendered', function(section) {
+                    try {
+                        const contents = rendition.getContents();
+                        if (!contents || !contents.document) return;
+                        const doc = contents.document;
+
+                        // evita duplicar o footer
+                        if (doc.getElementById('epub-nav-footer')) return;
+
+                        const footer = doc.createElement('div');
+                        footer.id = 'epub-nav-footer';
+                        footer.className = 'epub-nav-footer';
+
+                        const btnPrev = doc.createElement('button');
+                        btnPrev.textContent = '← Anterior';
+                        btnPrev.style.marginRight = '12px';
+
+                        const btnNext = doc.createElement('button');
+                        btnNext.textContent = 'Próxima →';
+
+                        footer.appendChild(btnPrev);
+                        footer.appendChild(btnNext);
+
+                        doc.body.appendChild(footer);
+
+                        // anexa handlers que chamam o rendition do host
+                        btnPrev.addEventListener('click', function(e) {
+                            try { rendition.prev(); } catch (err) { console.error('prev in page error', err); }
+                        });
+
+                        btnNext.addEventListener('click', function(e) {
+                            try { rendition.next(); } catch (err) { console.error('next in page error', err); }
+                        });
+
+                    } catch (err) {
+                        console.error('error injecting footer', err);
+                    }
+                });
+
                 // Mostra a primeira página
                 await rendition.display();
+
+                isReady = true;
+                setNavEnabled(true);
+                console.log('rendition ready');
 
                 /*
                  * Salva o livro atual
@@ -493,10 +569,12 @@
 
         function proximoLivro() {
 
-            if (rendition) {
+            if (!isReady || !rendition) return;
 
+            try {
                 rendition.next();
-
+            } catch (e) {
+                console.error('next error', e);
             }
 
         }
@@ -508,10 +586,12 @@
 
         function livroAnterior() {
 
-            if (rendition) {
+            if (!isReady || !rendition) return;
 
+            try {
                 rendition.prev();
-
+            } catch (e) {
+                console.error('prev error', e);
             }
 
         }
@@ -522,6 +602,9 @@
         ====================================================== */
 
         function voltarInicio() {
+
+            isReady = false;
+            setNavEnabled(false);
 
             /*
              * Esconde o leitor
@@ -534,64 +617,4 @@
              * Mostra a biblioteca
              */
 
-            document.getElementById("home").style.display = "flex";
-
-
-            /*
-             * Remove o EPUB da tela
-             */
-
-            document.getElementById("viewer").innerHTML = "";
-
-            book = null;
-
-            rendition = null;
-
-        }
-
-
-        /* =====================================================
-           TECLADO
-        ====================================================== */
-
-        document.addEventListener("keydown", function(event) {
-
-            /*
-             * Se nenhum livro estiver aberto, não faz nada
-             */
-
-            if (!rendition) {
-                return;
-            }
-
-
-            /*
-             * Seta direita = próxima página
-             */
-
-            if (event.key === "ArrowRight") {
-
-                rendition.next();
-
-            }
-
-
-            /*
-             * Seta esquerda = página anterior
-             */
-
-            if (event.key === "ArrowLeft") {
-
-                rendition.prev();
-
-            }
-
-        });
-
-
-    </script>
-
-
-</body>
-
-</html>
+{
