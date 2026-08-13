@@ -397,15 +397,15 @@
 
         let rendition = null;
 
-        // URL base do GitHub Pages
-        const BASE_URL = 'https://isabellabrunhara-cyber.github.io/liviaereader/';
+        // URL base do GitHub Pages - usar relativa para maior compatibilidade
+        const BASE_URL = './';
 
 
         /* =====================================================
            ABRIR LIVRO
         ====================================================== */
 
-        function abrirLivro(arquivo, titulo) {
+        async function abrirLivro(arquivo, titulo) {
 
             /*
              * Esconde a página inicial
@@ -441,41 +441,48 @@
 
             const epubUrl = BASE_URL + arquivo;
 
-            book = ePub(epubUrl);
+            try {
+                // baixa o arquivo como blob (ajuda a contornar problemas de CORS/range do servidor)
+                const resp = await fetch(epubUrl);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const blob = await resp.blob();
 
+                // carrega o epub a partir do blob
+                book = ePub(blob);
 
-            /*
-             * Renderiza o livro
-             */
+                // logging para debug
+                book.loaded.metadata
+                    .then(m => console.log('metadata', m))
+                    .catch(e => console.error('metadata error', e));
+                book.ready
+                    .then(() => console.log('book.ready OK'))
+                    .catch(e => console.error('book.ready error', e));
 
-            rendition = book.renderTo("viewer", {
+                // Renderiza o livro
+                rendition = book.renderTo("viewer", {
+                    width: "100%",
+                    height: "100%",
+                    spread: "auto"
+                });
 
-                width: "100%",
+                // Mostra a primeira página
+                await rendition.display();
 
-                height: "100%",
+                /*
+                 * Salva o livro atual
+                 */
 
-                spread: "auto"
+                localStorage.setItem("ultimoLivro", arquivo);
+                localStorage.setItem("ultimoTitulo", titulo);
 
-            });
-
-
-            /*
-             * Mostra a primeira página
-             */
-
-            rendition.display();
-
-
-            /*
-             * Salva o livro atual
-             */
-
-            localStorage.setItem("ultimoLivro", arquivo);
-
-            localStorage.setItem("ultimoTitulo", titulo);
+            } catch (e) {
+                console.error('Erro carregando EPUB', e);
+                alert('Erro ao carregar o livro: ' + e.message);
+                // volta para a biblioteca
+                voltarInicio();
+            }
 
         }
-
 
 
         /* =====================================================
@@ -493,7 +500,6 @@
         }
 
 
-
         /* =====================================================
            PÁGINA ANTERIOR
         ====================================================== */
@@ -507,7 +513,6 @@
             }
 
         }
-
 
 
         /* =====================================================
@@ -541,7 +546,6 @@
             rendition = null;
 
         }
-
 
 
         /* =====================================================
